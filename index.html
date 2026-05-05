@@ -17,6 +17,7 @@
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
+        /* Chispas de victoria */
         @keyframes spark {
             0% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(1); opacity: 1; }
             100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(-1 * var(--dist))) scale(0); opacity: 0; }
@@ -24,6 +25,8 @@
         .animate-spark {
             animation: spark 0.7s cubic-bezier(0.1, 0.5, 0.2, 1) var(--delay) forwards;
         }
+
+        /* Animación de la tapa del tubo */
         @keyframes capSeal {
             0% { transform: translate(-50%, -40px) scaleY(1.5); opacity: 0; }
             60% { transform: translate(-50%, 5px) scaleY(0.8); opacity: 1; }
@@ -33,6 +36,7 @@
             animation: capSeal 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
+        /* Estilo de las bolas */
         .ball {
             width: 2.2rem;
             height: 2.2rem;
@@ -51,16 +55,16 @@
             transform: translateX(-50%) translateY(-3.5rem) scale(1.1);
         }
 
+        /* Pantalla de carga */
         .splash-screen {
             position: fixed;
             inset: 0;
-            background: black;
+            background: #000;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 100;
-            transition: opacity 1s ease-out;
         }
 
         @media (min-width: 640px) {
@@ -72,6 +76,15 @@
             .ball.selected {
                 transform: translateX(-50%) translateY(-5rem) scale(1.1);
             }
+        }
+
+        /* Barra de carga victoria */
+        @keyframes loadingBar {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        .animate-loading-bar {
+            animation: loadingBar 3s linear forwards;
         }
     </style>
 </head>
@@ -92,7 +105,6 @@
             cyan: { base: '#00ffff', dark: '#008b8b' },
         };
 
-        // Configuración de niveles más dinámica
         const getLevelConfig = (lvl) => {
             const colors = Math.min(2 + Math.floor((lvl - 1) / 2), 8);
             const empty = lvl > 5 ? 2 : (lvl > 2 ? 2 : 1);
@@ -101,48 +113,52 @@
 
         const TUBE_CAPACITY = 4;
 
-        // --- SISTEMA DE AUDIO (SINTETIZADO) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Audio Context para sonidos sintetizados
+        let audioCtx = null;
         
+        const initAudio = () => {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        };
+
         const playSound = (type) => {
+            if (!audioCtx) initAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-
             const now = audioCtx.currentTime;
 
             if (type === 'move') {
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(440, now);
                 osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.setValueAtTime(0.05, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.start();
                 osc.stop(now + 0.1);
             } else if (type === 'complete') {
                 osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now); // C5
-                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
-                gain.gain.setValueAtTime(0.2, now);
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
                 osc.start();
                 osc.stop(now + 0.4);
             } else if (type === 'start') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(261.63, now);
-                osc.frequency.exponentialRampToValueAtTime(523.25, now + 0.5);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(329.63, now);
+                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.4);
                 gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
                 osc.start();
-                osc.stop(now + 0.5);
+                osc.stop(now + 0.4);
             } else if (type === 'win') {
                 osc.type = 'sine';
                 [523, 659, 783, 1046].forEach((f, i) => {
                     osc.frequency.setValueAtTime(f, now + i * 0.1);
                 });
-                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.setValueAtTime(0.1, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
                 osc.start();
                 osc.stop(now + 0.8);
@@ -176,23 +192,38 @@
             const [isWon, setIsWon] = useState(false);
             const [completedTubes, setCompletedTubes] = useState([]);
 
-            // Manejo de la pantalla de inicio
+            // Manejo de la Splash Screen
             useEffect(() => {
                 const timer = setTimeout(() => {
                     setShowSplash(false);
+                    initAudio();
                     playSound('start');
-                }, 3000);
+                }, 3500); // 3.5 segundos para ver bien la imagen
                 return () => clearTimeout(timer);
             }, []);
+
+            // Salto automático de nivel
+            useEffect(() => {
+                if (isWon) {
+                    const timer = setTimeout(() => {
+                        setLevel(prev => prev + 1);
+                    }, 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [isWon]);
 
             const generateLevel = (levelIndex) => {
                 const config = getLevelConfig(levelIndex);
                 const availableColors = Object.keys(BALL_COLORS).slice(0, config.colors);
                 let currentTubes = [];
-                for (let i = 0; i < config.colors; i++) currentTubes.push(Array(TUBE_CAPACITY).fill(availableColors[i]));
-                for (let i = 0; i < config.empty; i++) currentTubes.push([]);
+                for (let i = 0; i < config.colors; i++) {
+                    currentTubes.push(Array(TUBE_CAPACITY).fill(availableColors[i]));
+                }
+                for (let i = 0; i < config.empty; i++) {
+                    currentTubes.push([]);
+                }
 
-                // Mezclado
+                // Mezclado lógico
                 for (let i = 0; i < 200; i++) {
                     const sources = currentTubes.map((t, idx) => t.length > 0 ? idx : -1).filter(idx => idx !== -1);
                     const sourceIdx = sources[Math.floor(Math.random() * sources.length)];
@@ -218,6 +249,7 @@
 
             const handleTubeClick = (tubeIndex) => {
                 if (isWon || completedTubes.includes(tubeIndex)) return;
+                initAudio();
                 
                 if (selectedTube === null) {
                     if (tubes[tubeIndex].length > 0) setSelectedTube(tubeIndex);
@@ -234,9 +266,8 @@
 
                     const movingBallColor = source[source.length - 1];
 
-                    // Validar si el movimiento es posible (tubo vacío o mismo color)
                     if (target.length === 0 || target[target.length - 1] === movingBallColor) {
-                        // CALCULAR CUÁNTAS BOLAS DEL MISMO COLOR SE PUEDEN MOVER JUNTAS
+                        // Movimiento en bloque (misma lógica que antes)
                         let ballsToMoveCount = 0;
                         for (let i = source.length - 1; i >= 0; i--) {
                             if (source[i] === movingBallColor && (target.length + ballsToMoveCount) < TUBE_CAPACITY) {
@@ -258,7 +289,6 @@
                             newTubes[selectedTube] = newSource;
                             newTubes[tubeIndex] = newTarget;
 
-                            // Comprobar si el tubo destino se completó
                             if (newTarget.length === TUBE_CAPACITY && newTarget.every(b => b === movingBallColor)) {
                                 setCompletedTubes(prev => [...prev, tubeIndex]);
                                 playSound('complete');
@@ -270,7 +300,6 @@
                             setMoves(m => m + 1);
                             setSelectedTube(null);
 
-                            // Comprobar victoria
                             if (newTubes.every(t => t.length === 0 || (t.length === TUBE_CAPACITY && t.every(b => b === t[0])))) {
                                 setIsWon(true);
                                 playSound('win');
@@ -285,15 +314,24 @@
             if (showSplash) {
                 return (
                     <div className="splash-screen">
-                        <img 
-                            src="mamaball.jpg" 
-                            alt="MAMA BALL" 
-                            className="w-full max-w-md rounded-3xl shadow-2xl border-4 border-white/20 animate-pulse"
-                            onerror="this.src='https://placehold.co/600x600?text=MAMA+BALL'"
-                        />
-                        <div className="mt-8 flex flex-col items-center">
+                        {/* IMPORTANTE: La imagen debe estar en el mismo lugar que el index.html en GitHub.
+                          Se añade un borde blanco para que se note si está cargando.
+                        */}
+                        <div className="relative w-72 h-72 sm:w-96 sm:h-96 flex items-center justify-center bg-neutral-900 rounded-3xl border-4 border-white/10 overflow-hidden shadow-2xl">
+                            <img 
+                                src="mamaball.jpg" 
+                                alt="MAMA BALL" 
+                                className="w-full h-full object-cover animate-pulse"
+                                onError={(e) => {
+                                    e.target.onerror = null; 
+                                    // Si falla la local, intenta un placeholder o informa
+                                    console.log("Error cargando mamaball.jpg local");
+                                }}
+                            />
+                        </div>
+                        <div className="mt-10 flex flex-col items-center">
                             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="mt-4 text-white/50 uppercase tracking-widest text-xs font-bold">Cargando Diversión...</p>
+                            <p className="mt-4 text-white font-bold tracking-widest text-sm uppercase animate-pulse">Cargando Diversión...</p>
                         </div>
                     </div>
                 );
@@ -301,29 +339,31 @@
 
             return (
                 <div className="min-h-screen w-full bg-neutral-900 text-white flex flex-col items-center select-none overflow-hidden">
-                    <div className="w-full max-w-2xl flex justify-between items-center py-6 px-10">
+                    {/* Header */}
+                    <div className="w-full max-w-2xl flex justify-between items-center py-6 px-8 sm:px-12">
                         <div>
-                            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 italic">MAMA BALL</h1>
-                            <p className="text-xs text-neutral-500 uppercase font-bold tracking-widest">Nivel {level}</p>
+                            <h1 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 italic">MAMA BALL</h1>
+                            <p className="text-[10px] sm:text-xs text-neutral-500 uppercase font-bold tracking-widest">Nivel Actual: {level}</p>
                         </div>
                         <div className="text-right">
                             <p className="text-[10px] text-neutral-500 uppercase font-black">Movimientos</p>
-                            <p className="text-2xl font-mono font-bold leading-none">{moves}</p>
+                            <p className="text-xl sm:text-2xl font-mono font-bold leading-none">{moves}</p>
                         </div>
                     </div>
 
+                    {/* Tablero */}
                     <div className="flex-1 w-full flex items-center justify-center p-4">
                         <div className="grid grid-cols-4 sm:grid-cols-5 gap-x-6 gap-y-16 items-end">
                             {tubes.map((tube, tubeIndex) => (
                                 <div key={tubeIndex} className="relative cursor-pointer" onClick={() => handleTubeClick(tubeIndex)}>
-                                    <div className={`relative w-12 sm:w-16 h-44 sm:h-60 border-x-4 border-b-4 rounded-b-full transition-all duration-300
-                                        ${selectedTube === tubeIndex ? 'border-blue-400 bg-white/10 scale-110 shadow-lg' : 'border-white/20 bg-white/5'}
+                                    <div className={`relative w-12 sm:w-16 h-44 sm:h-60 border-x-4 border-b-4 rounded-b-3xl transition-all duration-300
+                                        ${selectedTube === tubeIndex ? 'border-blue-400 bg-white/10 scale-105 shadow-[0_0_20px_rgba(96,165,250,0.3)]' : 'border-white/20 bg-white/5'}
                                         ${completedTubes.includes(tubeIndex) ? 'border-green-500/40 bg-green-500/10' : ''}
                                     `}>
                                         {completedTubes.includes(tubeIndex) && <Sparks color={BALL_COLORS[tube[0]].base} />}
                                         {completedTubes.includes(tubeIndex) && (
                                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-[115%] h-5 z-40 animate-cap">
-                                                <div className="w-full h-full bg-neutral-400 rounded-t-lg shadow-md"></div>
+                                                <div className="w-full h-full bg-neutral-400 rounded-t-lg shadow-md border-b border-black/20"></div>
                                             </div>
                                         )}
                                         <div className="relative w-full h-full">
@@ -339,21 +379,34 @@
                         </div>
                     </div>
 
-                    <div className="py-10">
-                        <button onClick={() => startLevel(level)} className="px-8 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 active:scale-95 transition-all">Reiniciar Nivel</button>
+                    {/* Footer / Botón Reiniciar */}
+                    <div className="py-8">
+                        <button 
+                            onClick={() => startLevel(level)} 
+                            className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 active:scale-95 transition-all uppercase tracking-widest text-neutral-400 hover:text-white"
+                        >
+                            Reiniciar Nivel
+                        </button>
                     </div>
 
+                    {/* Modal de Victoria con cambio automático */}
                     {isWon && (
-                        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6">
-                            <div className="bg-neutral-800 p-10 rounded-[2.5rem] text-center shadow-2xl max-w-sm w-full border border-white/10">
+                        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6 backdrop-blur-sm">
+                            <div className="bg-neutral-800 p-8 sm:p-12 rounded-[2.5rem] text-center shadow-2xl max-w-sm w-full border border-white/10 relative overflow-hidden">
                                 <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                                     <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
                                     </svg>
                                 </div>
-                                <h2 className="text-4xl font-black mb-2 italic">¡EXCELENTE!</h2>
-                                <p className="text-neutral-400 text-sm mb-8 uppercase tracking-widest">Nivel {level} Completado</p>
-                                <button onClick={() => setLevel(l => l + 1)} className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-xl hover:bg-blue-500 transition-colors shadow-lg active:scale-95">SIGUIENTE NIVEL</button>
+                                <h2 className="text-4xl font-black mb-2 italic text-white">¡EXCELENTE!</h2>
+                                <p className="text-neutral-400 text-sm mb-6 uppercase tracking-widest font-bold">Nivel {level} Completado</p>
+                                
+                                <div className="space-y-4">
+                                    <p className="text-blue-400 text-xs font-black animate-pulse uppercase">Cargando siguiente nivel...</p>
+                                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-500 animate-loading-bar"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
