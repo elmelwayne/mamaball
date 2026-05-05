@@ -51,6 +51,18 @@
             transform: translateX(-50%) translateY(-3.5rem) scale(1.1);
         }
 
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 1s ease-out;
+        }
+
         @media (min-width: 640px) {
             .ball {
                 width: 3rem;
@@ -67,7 +79,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const BALL_COLORS = {
             red: { base: '#ff4b4b', dark: '#8b0000' },
@@ -80,13 +92,62 @@
             cyan: { base: '#00ffff', dark: '#008b8b' },
         };
 
-        const LEVELS = [
-            { colors: 2, empty: 1 }, { colors: 3, empty: 2 },
-            { colors: 4, empty: 2 }, { colors: 5, empty: 2 },
-            { colors: 6, empty: 2 }, { colors: 7, empty: 2 }
-        ];
+        // Configuración de niveles más dinámica
+        const getLevelConfig = (lvl) => {
+            const colors = Math.min(2 + Math.floor((lvl - 1) / 2), 8);
+            const empty = lvl > 5 ? 2 : (lvl > 2 ? 2 : 1);
+            return { colors, empty };
+        };
 
         const TUBE_CAPACITY = 4;
+
+        // --- SISTEMA DE AUDIO (SINTETIZADO) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const playSound = (type) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'move') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start();
+                osc.stop(now + 0.1);
+            } else if (type === 'complete') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start();
+                osc.stop(now + 0.4);
+            } else if (type === 'start') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(261.63, now);
+                osc.frequency.exponentialRampToValueAtTime(523.25, now + 0.5);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start();
+                osc.stop(now + 0.5);
+            } else if (type === 'win') {
+                osc.type = 'sine';
+                [523, 659, 783, 1046].forEach((f, i) => {
+                    osc.frequency.setValueAtTime(f, now + i * 0.1);
+                });
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                osc.start();
+                osc.stop(now + 0.8);
+            }
+        };
 
         const Sparks = ({ color }) => (
             <div className="absolute inset-0 pointer-events-none overflow-visible z-50">
@@ -107,6 +168,7 @@
         );
 
         function App() {
+            const [showSplash, setShowSplash] = useState(true);
             const [tubes, setTubes] = useState([]);
             const [selectedTube, setSelectedTube] = useState(null);
             const [level, setLevel] = useState(1);
@@ -114,14 +176,24 @@
             const [isWon, setIsWon] = useState(false);
             const [completedTubes, setCompletedTubes] = useState([]);
 
+            // Manejo de la pantalla de inicio
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    setShowSplash(false);
+                    playSound('start');
+                }, 3000);
+                return () => clearTimeout(timer);
+            }, []);
+
             const generateLevel = (levelIndex) => {
-                const config = LEVELS[Math.min(levelIndex - 1, LEVELS.length - 1)];
+                const config = getLevelConfig(levelIndex);
                 const availableColors = Object.keys(BALL_COLORS).slice(0, config.colors);
                 let currentTubes = [];
                 for (let i = 0; i < config.colors; i++) currentTubes.push(Array(TUBE_CAPACITY).fill(availableColors[i]));
                 for (let i = 0; i < config.empty; i++) currentTubes.push([]);
 
-                for (let i = 0; i < 150; i++) {
+                // Mezclado
+                for (let i = 0; i < 200; i++) {
                     const sources = currentTubes.map((t, idx) => t.length > 0 ? idx : -1).filter(idx => idx !== -1);
                     const sourceIdx = sources[Math.floor(Math.random() * sources.length)];
                     const targets = currentTubes.map((t, idx) => (t.length < TUBE_CAPACITY && idx !== sourceIdx) ? idx : -1).filter(idx => idx !== -1);
@@ -140,37 +212,92 @@
                 setCompletedTubes([]);
             };
 
-            useEffect(() => { startLevel(level); }, [level]);
+            useEffect(() => { 
+                if (!showSplash) startLevel(level); 
+            }, [level, showSplash]);
 
             const handleTubeClick = (tubeIndex) => {
                 if (isWon || completedTubes.includes(tubeIndex)) return;
+                
                 if (selectedTube === null) {
                     if (tubes[tubeIndex].length > 0) setSelectedTube(tubeIndex);
                 } else {
                     if (selectedTube === tubeIndex) { setSelectedTube(null); return; }
+                    
                     const source = tubes[selectedTube];
                     const target = tubes[tubeIndex];
-                    const ball = source[source.length - 1];
+                    
+                    if (target.length >= TUBE_CAPACITY) {
+                        setSelectedTube(tubeIndex);
+                        return;
+                    }
 
-                    if (target.length < TUBE_CAPACITY && (target.length === 0 || target[target.length - 1] === ball)) {
-                        const newTubes = [...tubes];
-                        newTubes[selectedTube] = [...source];
-                        newTubes[tubeIndex] = [...target];
-                        newTubes[tubeIndex].push(newTubes[selectedTube].pop());
-                        
-                        if (newTubes[tubeIndex].length === TUBE_CAPACITY && newTubes[tubeIndex].every(b => b === ball)) {
-                            setCompletedTubes(prev => [...prev, tubeIndex]);
+                    const movingBallColor = source[source.length - 1];
+
+                    // Validar si el movimiento es posible (tubo vacío o mismo color)
+                    if (target.length === 0 || target[target.length - 1] === movingBallColor) {
+                        // CALCULAR CUÁNTAS BOLAS DEL MISMO COLOR SE PUEDEN MOVER JUNTAS
+                        let ballsToMoveCount = 0;
+                        for (let i = source.length - 1; i >= 0; i--) {
+                            if (source[i] === movingBallColor && (target.length + ballsToMoveCount) < TUBE_CAPACITY) {
+                                ballsToMoveCount++;
+                            } else {
+                                break;
+                            }
                         }
-                        
-                        setTubes(newTubes);
-                        setMoves(m => m + 1);
-                        setSelectedTube(null);
-                        if (newTubes.every(t => t.length === 0 || (t.length === TUBE_CAPACITY && t.every(b => b === t[0])))) setIsWon(true);
+
+                        if (ballsToMoveCount > 0) {
+                            const newTubes = [...tubes];
+                            const newSource = [...source];
+                            const newTarget = [...target];
+
+                            for (let i = 0; i < ballsToMoveCount; i++) {
+                                newTarget.push(newSource.pop());
+                            }
+
+                            newTubes[selectedTube] = newSource;
+                            newTubes[tubeIndex] = newTarget;
+
+                            // Comprobar si el tubo destino se completó
+                            if (newTarget.length === TUBE_CAPACITY && newTarget.every(b => b === movingBallColor)) {
+                                setCompletedTubes(prev => [...prev, tubeIndex]);
+                                playSound('complete');
+                            } else {
+                                playSound('move');
+                            }
+
+                            setTubes(newTubes);
+                            setMoves(m => m + 1);
+                            setSelectedTube(null);
+
+                            // Comprobar victoria
+                            if (newTubes.every(t => t.length === 0 || (t.length === TUBE_CAPACITY && t.every(b => b === t[0])))) {
+                                setIsWon(true);
+                                playSound('win');
+                            }
+                        }
                     } else {
                         setSelectedTube(tubeIndex);
                     }
                 }
             };
+
+            if (showSplash) {
+                return (
+                    <div className="splash-screen">
+                        <img 
+                            src="mamaball.jpg" 
+                            alt="MAMA BALL" 
+                            className="w-full max-w-md rounded-3xl shadow-2xl border-4 border-white/20 animate-pulse"
+                            onerror="this.src='https://placehold.co/600x600?text=MAMA+BALL'"
+                        />
+                        <div className="mt-8 flex flex-col items-center">
+                            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="mt-4 text-white/50 uppercase tracking-widest text-xs font-bold">Cargando Diversión...</p>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <div className="min-h-screen w-full bg-neutral-900 text-white flex flex-col items-center select-none overflow-hidden">
@@ -213,14 +340,20 @@
                     </div>
 
                     <div className="py-10">
-                        <button onClick={() => startLevel(level)} className="px-8 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 active:scale-95 transition-all">Reiniciar</button>
+                        <button onClick={() => startLevel(level)} className="px-8 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 active:scale-95 transition-all">Reiniciar Nivel</button>
                     </div>
 
                     {isWon && (
                         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6">
                             <div className="bg-neutral-800 p-10 rounded-[2.5rem] text-center shadow-2xl max-w-sm w-full border border-white/10">
-                                <h2 className="text-4xl font-black mb-6 italic">¡LOGRADO!</h2>
-                                <button onClick={() => setLevel(l => l + 1)} className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-xl hover:bg-blue-500 transition-colors">SIGUIENTE</button>
+                                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </div>
+                                <h2 className="text-4xl font-black mb-2 italic">¡EXCELENTE!</h2>
+                                <p className="text-neutral-400 text-sm mb-8 uppercase tracking-widest">Nivel {level} Completado</p>
+                                <button onClick={() => setLevel(l => l + 1)} className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-xl hover:bg-blue-500 transition-colors shadow-lg active:scale-95">SIGUIENTE NIVEL</button>
                             </div>
                         </div>
                     )}
