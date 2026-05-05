@@ -12,10 +12,35 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #171717;
+            background-color: #1a1c23;
             overflow: hidden;
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             height: 100vh;
+        }
+
+        /* Estilo de Botones Superiores Estilo Referencia */
+        .btn-ui {
+            background: #1d63ed;
+            border-bottom: 4px solid #1444a4;
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            min-width: 48px;
+            min-height: 48px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        .btn-ui:active {
+            transform: translateY(2px);
+            border-bottom-width: 2px;
+        }
+        .btn-ui.disabled {
+            background: #4b5563;
+            border-bottom-color: #374151;
+            opacity: 0.5;
+            pointer-events: none;
         }
 
         /* Animaciones */
@@ -52,10 +77,10 @@
             transform: translateX(-50%);
             width: var(--ball-size);
             height: var(--ball-size);
-            bottom: calc(var(--ball-index) * var(--ball-spacing) + 0.2rem);
+            bottom: calc(var(--ball-index) * var(--ball-spacing) + 0.4rem);
         }
 
-        .ball.selected { transform: translateX(-50%) translateY(-2.5rem) scale(1.1); }
+        .ball.selected { transform: translateX(-50%) translateY(-3rem) scale(1.1); }
 
         .splash-screen {
             position: fixed; inset: 0; background: #000;
@@ -65,7 +90,6 @@
         @keyframes loadingBar { from { width: 0%; } to { width: 100%; } }
         .animate-loading-bar { animation: loadingBar 2s linear forwards; }
 
-        /* Contenedor con scroll si es necesario */
         .game-scroll-area {
             flex: 1;
             width: 100%;
@@ -74,7 +98,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px 0;
+            padding: 10px 0;
         }
     </style>
 </head>
@@ -82,7 +106,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect, useCallback, useRef } = React;
 
         const BALL_COLORS = {
             red: { base: '#ff4b4b', dark: '#8b0000' },
@@ -128,7 +152,6 @@
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
                     osc.start(); osc.stop(now + 0.05);
                 } else if (type === 'complete') {
-                    // Sonido más corto
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(600, now);
                     osc.frequency.exponentialRampToValueAtTime(900, now + 0.15);
@@ -136,7 +159,6 @@
                     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
                     osc.start(); osc.stop(now + 0.15);
                 } else if (type === 'win') {
-                    // Sonido de victoria optimizado y corto
                     osc.type = 'triangle';
                     [600, 800, 1000].forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.05));
                     gain.gain.setValueAtTime(0.08, now);
@@ -176,6 +198,7 @@
             const [showSplash, setShowSplash] = useState(true);
             const [level, setLevel] = useState(1);
             const [tubes, setTubes] = useState([]);
+            const [history, setHistory] = useState([]);
             const [selectedTube, setSelectedTube] = useState(null);
             const [moves, setMoves] = useState(0);
             const [isWon, setIsWon] = useState(false);
@@ -222,6 +245,7 @@
 
             const startLevel = useCallback((lvl) => {
                 setTubes(generateLevel(lvl));
+                setHistory([]);
                 setSelectedTube(null);
                 setMoves(0);
                 setIsWon(false);
@@ -232,6 +256,17 @@
             const restartCurrentLevel = () => {
                 setWinStreak(0);
                 startLevel(level);
+            };
+
+            const undoMove = () => {
+                if (history.length > 0 && !isWon) {
+                    const lastState = history[history.length - 1];
+                    setTubes(lastState.tubes);
+                    setCompletedTubes(lastState.completedTubes);
+                    setHistory(history.slice(0, -1));
+                    setMoves(m => m - 1);
+                    setSelectedTube(null);
+                }
             };
 
             useEffect(() => { if (!showSplash) startLevel(level); }, [level, showSplash, startLevel]);
@@ -251,6 +286,9 @@
 
                     const color = source[source.length - 1];
                     if (target.length === 0 || target[target.length - 1] === color) {
+                        // Guardar historia antes de cambiar
+                        setHistory(prev => [...prev, { tubes: tubes.map(t => [...t]), completedTubes: [...completedTubes] }]);
+
                         let toMove = 0;
                         for (let i = source.length - 1; i >= 0; i--) {
                             if (source[i] === color && (target.length + toMove) < capacity) toMove++;
@@ -265,9 +303,11 @@
                         newTubes[selectedTube] = newSource;
                         newTubes[tubeIndex] = newTarget;
 
+                        let newlyCompleted = false;
                         if (newTarget.length === capacity && newTarget.every(b => b === color)) {
                             setCompletedTubes(prev => [...prev, tubeIndex]);
                             playSound('complete');
+                            newlyCompleted = true;
                         } else {
                             playSound('move');
                         }
@@ -276,9 +316,9 @@
                         setMoves(m => m + 1);
                         setSelectedTube(null);
 
-                        if (newTubes.every(t => t.length === 0 || (t.length === capacity && t.every(b => b === t[0])))) {
-                            handleWin();
-                        }
+                        // Chequear victoria
+                        const win = newTubes.every(t => t.length === 0 || (t.length === capacity && t.every(b => b === t[0])));
+                        if (win) handleWin();
                     } else {
                         setSelectedTube(tubeIndex);
                     }
@@ -311,41 +351,66 @@
                 return (
                     <div className="splash-screen">
                         <img src="mamaball.jpg" alt="MAMA BALL" className="w-64 h-64 rounded-3xl object-cover animate-pulse border-4 border-white/10" />
-                        <p className="mt-6 text-white font-bold tracking-widest text-xs uppercase animate-pulse">Cargando...</p>
+                        <p className="mt-6 text-white font-bold tracking-widest text-xs uppercase animate-pulse">Cargando Diversión...</p>
                     </div>
                 );
             }
 
             return (
-                <div className="h-screen w-full bg-neutral-900 text-white flex flex-col items-center select-none overflow-hidden">
+                <div className="h-screen w-full bg-[#1a1c23] text-white flex flex-col items-center select-none overflow-hidden">
                     {showApplause && <ConfettiEffect />}
                     
-                    {/* Header */}
-                    <div className="w-full max-w-2xl flex justify-between items-center py-4 px-6 shrink-0">
-                        <div onClick={restartCurrentLevel} className="cursor-pointer active:scale-95 transition-transform">
-                            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 italic">MAMA BALL</h1>
-                            <p className="text-[9px] text-neutral-500 uppercase font-bold">Nivel {level} • Racha: {winStreak}</p>
+                    {/* Barra Superior Estilo Dashboard (Referencia) */}
+                    <div className="w-full max-w-lg px-4 pt-6 pb-2">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex gap-2">
+                                <button onClick={() => setLevel(1)} className="btn-ui">
+                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg>
+                                </button>
+                                <button onClick={restartCurrentLevel} className="btn-ui">
+                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
+                                </button>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={undoMove} 
+                                    className={`btn-ui flex gap-1 items-center px-4 ${history.length === 0 ? 'disabled' : ''}`}
+                                >
+                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.13,8 12.5,8Z"/></svg>
+                                    <span className="font-bold text-lg">{history.length}</span>
+                                </button>
+                                <button 
+                                    onClick={addExtraTube}
+                                    className={`btn-ui flex gap-1 items-center px-4 ${extraBottlesCount === 0 ? 'disabled' : ''}`}
+                                >
+                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M19,2H5V5H19V2M17,6H7V8H17V6M19,9H5V22H19V9Z"/></svg>
+                                    <span className="font-bold text-lg">{extraBottlesCount}</span>
+                                </button>
+                            </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-[9px] text-neutral-500 uppercase font-black">Movimientos</p>
-                            <p className="text-lg font-mono font-bold leading-none">{moves}</p>
+
+                        {/* Texto Nivel Grande (Referencia) */}
+                        <div className="text-center">
+                            <h2 className="text-5xl font-black tracking-tight text-white uppercase drop-shadow-md">LEVEL {level}</h2>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Movimientos: {moves}</p>
                         </div>
                     </div>
 
-                    {/* Tablero con Scroll Area */}
+                    {/* Tablero de Juego */}
                     <div className="game-scroll-area">
-                        <div className={`grid gap-x-3 gap-y-10 items-end px-4 ${tubes.length > 7 ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4'}`}>
+                        <div className={`grid gap-x-4 gap-y-12 items-end px-6 ${tubes.length > 7 ? 'grid-cols-4' : 'grid-cols-3'}`}>
                             {tubes.map((tube, idx) => (
                                 <div key={idx} className="relative cursor-pointer" onClick={() => handleTubeClick(idx)}>
-                                    <div className={`relative ${tubeWidth} transition-all duration-300 border-x-4 border-b-4 rounded-b-2xl
-                                        ${selectedTube === idx ? 'border-blue-400 bg-white/10 scale-105 shadow-lg' : 'border-white/10 bg-white/5'}
-                                        ${completedTubes.includes(idx) ? 'border-green-500/30 bg-green-500/10' : ''}`}
-                                        style={{ height: `calc(${capacity} * ${ballSpacing} + 1rem)` }}>
+                                    <div className={`relative ${tubeWidth} transition-all duration-300 border-x-4 border-b-4 rounded-b-2xl shadow-inner
+                                        ${selectedTube === idx ? 'border-blue-400 bg-blue-400/10 scale-105' : 'border-white/10 bg-white/5'}
+                                        ${completedTubes.includes(idx) ? 'border-green-500/40 bg-green-500/10' : ''}`}
+                                        style={{ height: `calc(${capacity} * ${ballSpacing} + 1.2rem)` }}>
                                         
                                         {completedTubes.includes(idx) && <Sparks color={BALL_COLORS[tube[0]].base} />}
                                         {completedTubes.includes(idx) && (
-                                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-[110%] h-4 animate-cap">
-                                                <div className="w-full h-full bg-neutral-400 rounded-t-lg border-b border-black/20"></div>
+                                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-[115%] h-4 animate-cap">
+                                                <div className="w-full h-full bg-neutral-500 rounded-t-lg border-b-2 border-black/30 shadow-md"></div>
                                             </div>
                                         )}
                                         
@@ -368,36 +433,29 @@
                         </div>
                     </div>
 
-                    {/* Ayuda Extra fija abajo */}
-                    <div className="py-6 shrink-0 flex flex-col items-center gap-2 bg-neutral-900/80 backdrop-blur w-full border-t border-white/5">
-                        <button 
-                            onClick={addExtraTube}
-                            disabled={extraBottlesCount === 0}
-                            className={`flex items-center gap-3 px-6 py-2.5 rounded-xl transition-all ${extraBottlesCount > 0 ? 'bg-blue-600 shadow-lg active:scale-95' : 'bg-white/5 opacity-20'}`}
-                        >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19,2H5V5H19V2M17,6H7V8H17V6M19,9H5V22H19V9Z"/></svg>
-                            <span className="font-black text-xs uppercase">Tubo Extra ({extraBottlesCount})</span>
-                        </button>
-                        <p className="text-[8px] text-neutral-600 font-bold uppercase tracking-widest">5 victorias sin reiniciar = +1 ayuda</p>
+                    {/* Footer Informativo */}
+                    <div className="pb-8 shrink-0 flex flex-col items-center gap-1 opacity-40">
+                        <p className="text-[9px] font-black uppercase tracking-widest">Racha: {winStreak} | Mama Ball By Mefdim</p>
                     </div>
 
                     {/* Modal Victoria */}
                     {isWon && (
-                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6 backdrop-blur-sm">
-                            <div className="bg-neutral-800 p-8 rounded-3xl text-center shadow-2xl max-w-xs w-full border border-white/10">
-                                <h2 className={`text-3xl font-black mb-2 italic ${showApplause ? 'text-yellow-400' : 'text-white'}`}>
-                                    {showApplause ? '¡LEGENDARIO!' : '¡MUY BIEN!'}
-                                </h2>
-                                <p className="text-neutral-400 text-[10px] mb-6 uppercase tracking-widest font-bold">Nivel Completado</p>
+                        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6 backdrop-blur-md">
+                            <div className="bg-[#1f2937] p-10 rounded-[2.5rem] text-center shadow-2xl max-w-sm w-full border-4 border-white/5">
+                                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/30">
+                                    <svg viewBox="0 0 24 24" className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
+                                </div>
+                                <h2 className="text-4xl font-black mb-2 text-white italic tracking-tighter uppercase">¡EXCELENTE!</h2>
+                                <p className="text-neutral-400 text-xs mb-8 uppercase tracking-widest font-bold">Nivel {level} Completado</p>
                                 
                                 {showApplause && (
-                                    <div className="mb-6 bg-blue-500/10 py-2 rounded-lg border border-blue-500/20">
-                                        <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest">+1 Tubo Extra</p>
+                                    <div className="mb-6 bg-blue-500/20 py-3 rounded-2xl border border-blue-500/30">
+                                        <p className="text-blue-400 text-xs font-black uppercase tracking-widest">¡BONUS: +1 AYUDA!</p>
                                     </div>
                                 )}
 
-                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div className="h-full bg-green-500 animate-loading-bar"></div>
+                                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden mb-4">
+                                    <div className="h-full bg-blue-500 animate-loading-bar"></div>
                                 </div>
                             </div>
                         </div>
