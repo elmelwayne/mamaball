@@ -3,14 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="manifest" href="manifest.json">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="MamaBall">
-    <link rel="apple-touch-icon" href="mamaball.jpg">
-    <meta name="theme-color" content="#1d63ed"> 
-    <title>MAMÁ BALL - Edición Premium</title>
+    <title>MAMA BALL - Edición Premium</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -148,7 +141,7 @@ const COLORS = {
     pink:   '#db2777',
     cyan:   '#0891b2'
 };
-    
+
 /* ══ AUDIO ══ */
 let _ctx = null;
 const ac = () => {
@@ -279,6 +272,8 @@ function App() {
     const [selectedIdx, setSelected]  = useState(null);
     const [moves, setMoves]           = useState(0);
     const [history, setHistory]       = useState([]);
+    const [undoUsed, setUndoUsed]     = useState(0);
+    const MAX_UNDO = 3;
     const [bonusCount, setBonus]      = useState(0);
     const [winStreak, setStreak]      = useState(() => {
         try { return parseInt(localStorage.getItem('mb_streak') || '0', 10); } catch { return 0; }
@@ -314,7 +309,7 @@ function App() {
 
         setTubes(newTubes);
         setSizes(computeSizes(newTubes.length, cap));
-        setHistory([]); setMoves(0); setIsWon(false); setSelected(null); setSparkles([]);
+        setHistory([]); setMoves(0); setIsWon(false); setSelected(null); setSparkles([]); setUndoUsed(0);
     }, []);
 
     useEffect(() => { if (!showSplash) initLevel(level); }, [level, showSplash, initLevel]);
@@ -369,7 +364,7 @@ function App() {
 
         if (ok) {
             const count = Math.min(sameCount, space);
-            setHistory(h => [...h, JSON.stringify(tubes)]);
+            setHistory(h => [...h, JSON.stringify(tubes)].slice(-3));
             const newTubes = tubes.map(t => ({...t, balls:[...t.balls]}));
             for (let i = 0; i < count; i++) newTubes[idx].balls.push(newTubes[selectedIdx].balls.pop());
 
@@ -415,10 +410,11 @@ function App() {
     };
 
     const undo = () => {
-        if (history.length > 0) {
+        if (history.length > 0 && undoUsed < MAX_UNDO) {
             setTubes(JSON.parse(history[history.length-1]));
             setHistory(h => h.slice(0,-1));
             setMoves(m => m-1);
+            setUndoUsed(u => u + 1);
             playPick();
         }
     };
@@ -469,9 +465,9 @@ function App() {
                         </button>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={undo} className={`btn-ui px-3 ${history.length===0?'disabled':''}`}>
+                        <button onClick={undo} className={`btn-ui px-3 ${history.length===0 || undoUsed>=MAX_UNDO ?'disabled':''}`}>
                             <svg className="w-5 h-5 fill-white mr-1" viewBox="0 0 24 24"><path d="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.13,8 12.5,8Z"/></svg>
-                            <span className="font-black text-sm">{history.length}</span>
+                            <span className="font-black text-sm">{MAX_UNDO - undoUsed}</span>
                         </button>
                         <button onClick={() => {
                             if (bonusCount > 0) {
