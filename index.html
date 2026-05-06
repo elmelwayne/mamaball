@@ -416,29 +416,18 @@ function App() {
         }
     };
 
-    if (showSplash) return (
-        <div className="flex flex-col items-center justify-center h-screen bg-[#0a0c10]">
-            <div className="flex flex-col items-center justify-center h-screen bg-[#0a0c10]">
-  <img 
-  src="mamaball.jpg" 
-  className="w-40 h-40 sm:w-52 sm:h-52 md:w-64 md:h-64 lg:w-72 lg:h-72 rounded-[2.5rem] mb-10 shadow-[0_0_60px_rgba(29,99,237,0.15)]" 
-  alt="Logo" 
-/>
-
-  <div className="w-60 h-1.5 bg-white/5 rounded-full overflow-hidden">
-    <div 
-      className="h-full bg-blue-500 w-full origin-left" 
-      style={{ animation:'loading 1.5s ease-in-out' }}
-    ></div>
-  </div>
-
-  <p className="mt-6 text-[9px] font-black tracking-[0.6em] uppercase text-blue-400/60">
-    Cargando Nivel {level}
-  </p>
-</div>
-            <p className="mt-6 text-[9px] font-black tracking-[0.6em] uppercase text-blue-400/60">Cargando Nivel {level}</p>
-        </div>
-    );
+    if (showSplash) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-screen bg-[#0a0c10]">
+                        <img src="mamaball.jpg" className="w-52 h-52 rounded-[2.5rem] mb-10 shadow-[0_0_60px_rgba(29,99,237,0.15)]" alt="Logo" />
+                        <div className="w-40 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 w-full origin-left animate-[loading_1.5s_ease-in-out]"></div>
+                        </div>
+                        <p className="mt-6 text-[9px] font-black tracking-[0.6em] uppercase text-blue-400/60">Cargando Nivel {level}</p>
+                        <style>{`@keyframes loading { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
+                    </div>
+                );
+            }
 
     return (
         <div className="flex flex-col overflow-hidden" style={{height:'100dvh', background:'#12141a'}}>
