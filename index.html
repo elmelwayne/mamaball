@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MAMA BALL - Clasificador de Bolas</title>
+    <title>MAMA BALL - Edición Optimizada</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,11 +14,13 @@
             padding: 0;
             background-color: #1a1c23;
             overflow: hidden;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
             height: 100vh;
+            color: white;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* Estilo de Botones Superiores Estilo Referencia */
         .btn-ui {
             background: #1d63ed;
             border-bottom: 4px solid #1444a4;
@@ -28,435 +30,299 @@
             align-items: center;
             justify-content: center;
             transition: all 0.1s;
-            min-width: 48px;
-            min-height: 48px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
         }
         .btn-ui:active {
             transform: translateY(2px);
             border-bottom-width: 2px;
         }
         .btn-ui.disabled {
-            background: #4b5563;
-            border-bottom-color: #374151;
+            background: #2d303a;
+            border-bottom-color: #1a1c23;
             opacity: 0.5;
             pointer-events: none;
         }
 
-        /* Animaciones */
-        @keyframes spark {
-            0% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(1); opacity: 1; }
-            100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(-1 * var(--dist))) scale(0); opacity: 0; }
+        /* Contenedor de botellas optimizado para aprovechar ancho */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 10px;
+            justify-items: center;
         }
-        .animate-spark { animation: spark 0.7s cubic-bezier(0.1, 0.5, 0.2, 1) var(--delay) forwards; }
 
-        @keyframes capSeal {
-            0% { transform: translate(-50%, -40px) scaleY(1.5); opacity: 0; }
-            60% { transform: translate(-50%, 5px) scaleY(0.8); opacity: 1; }
-            100% { transform: translate(-50%, 0) scaleY(1); opacity: 1; }
+        .bottle {
+            position: relative;
+            background: rgba(255,255,255,0.03);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top: none;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            padding-bottom: 6px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            width: 54px;
         }
-        .animate-cap { animation: capSeal 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
-        @keyframes confetti {
-            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        .bottle.selected {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            transform: translateY(-8px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
-        .confetti {
-            position: absolute; width: 10px; height: 10px; z-index: 60;
-            animation: confetti 3s linear forwards;
+
+        .bottle.mini {
+            width: 48px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-style: dashed; /* Para diferenciarlas */
         }
 
         .ball {
-            border-radius: 9999px;
-            position: absolute;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-top: 2px;
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: inset -4px -4px 8px rgba(0,0,0,0.3), 
+                        inset 4px 4px 8px rgba(255,255,255,0.2);
+        }
+
+        .ball.floating {
+            transform: translateY(-45px);
             z-index: 10;
-            background: radial-gradient(circle at 30% 30%, #ffffff 2%, var(--ball-base) 40%, var(--ball-dark) 100%);
-            box-shadow: inset -1px -1px 4px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
-            left: 50%;
-            transform: translateX(-50%);
-            width: var(--ball-size);
-            height: var(--ball-size);
-            bottom: calc(var(--ball-index) * var(--ball-spacing) + 0.4rem);
         }
 
-        .ball.selected { transform: translateX(-50%) translateY(-3rem) scale(1.1); }
-
-        .splash-screen {
-            position: fixed; inset: 0; background: #000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;
-        }
-
-        @keyframes loadingBar { from { width: 0%; } to { width: 100%; } }
-        .animate-loading-bar { animation: loadingBar 2s linear forwards; }
-
-        .game-scroll-area {
-            flex: 1;
-            width: 100%;
-            overflow-x: hidden;
-            overflow-y: auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 0;
-        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade { animation: fadeIn 0.3s ease-out; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useRef } = React;
+        const { useState, useEffect, useCallback } = React;
 
-        const BALL_COLORS = {
-            red: { base: '#ff4b4b', dark: '#8b0000' },
-            blue: { base: '#00bfff', dark: '#00008b' },
-            yellow: { base: '#ffd700', dark: '#b8860b' },
-            green: { base: '#32cd32', dark: '#006400' },
-            purple: { base: '#9370db', dark: '#4b0082' },
-            orange: { base: '#ff8c00', dark: '#8b4500' },
-            pink: { base: '#ff69b4', dark: '#8b0a50' },
-            cyan: { base: '#00ffff', dark: '#008b8b' },
+        const COLORS = {
+            red: '#ff4b4b',
+            blue: '#2563eb',
+            yellow: '#facc15',
+            green: '#22c55e',
+            purple: '#9333ea',
+            orange: '#f97316',
+            pink: '#db2777',
+            cyan: '#06b6d4'
         };
-
-        const TUBE_BASE_CAPACITY = 4;
-
-        let audioCtx = null;
-        const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); };
-
-        const playSound = (type) => {
-            if (!audioCtx) initAudio();
-            const now = audioCtx.currentTime;
-            
-            if (type === 'applause') {
-                for (let i = 0; i < 12; i++) {
-                    const osc = audioCtx.createOscillator();
-                    const g = audioCtx.createGain();
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(150 + Math.random() * 150, now + i * 0.08);
-                    g.gain.setValueAtTime(0.04, now + i * 0.08);
-                    g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.08);
-                    osc.connect(g).connect(audioCtx.destination);
-                    osc.start(now + i * 0.08);
-                    osc.stop(now + i * 0.08 + 0.08);
-                }
-            } else {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain).connect(audioCtx.destination);
-                
-                if (type === 'move') {
-                    osc.frequency.setValueAtTime(400, now);
-                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.05);
-                    gain.gain.setValueAtTime(0.04, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-                    osc.start(); osc.stop(now + 0.05);
-                } else if (type === 'complete') {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(600, now);
-                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.15);
-                    gain.gain.setValueAtTime(0.08, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-                    osc.start(); osc.stop(now + 0.15);
-                } else if (type === 'win') {
-                    osc.type = 'triangle';
-                    [600, 800, 1000].forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.05));
-                    gain.gain.setValueAtTime(0.08, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-                    osc.start(); osc.stop(now + 0.25);
-                }
-            }
-        };
-
-        const ConfettiEffect = () => {
-            const colors = ['#ff0', '#f0f', '#0ff', '#0f0', '#fff'];
-            return (
-                <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
-                    {[...Array(40)].map((_, i) => (
-                        <div key={i} className="confetti" style={{
-                            left: `${Math.random() * 100}%`,
-                            backgroundColor: colors[Math.floor(Math.random() * colors.length)],
-                            animationDelay: `${Math.random() * 1}s`,
-                            animationDuration: `${1.5 + Math.random() * 1.5}s`
-                        }} />
-                    ))}
-                </div>
-            );
-        };
-
-        const Sparks = ({ color }) => (
-            <div className="absolute inset-0 pointer-events-none overflow-visible z-50">
-                {[...Array(10)].map((_, i) => (
-                    <div key={i} className="absolute left-1/2 top-0 w-1 h-1 rounded-full animate-spark"
-                        style={{ backgroundColor: color, '--angle': `${i * 36}deg`, '--delay': '0s', '--dist': '40px' }}
-                    />
-                ))}
-            </div>
-        );
 
         function App() {
             const [showSplash, setShowSplash] = useState(true);
             const [level, setLevel] = useState(1);
             const [tubes, setTubes] = useState([]);
-            const [history, setHistory] = useState([]);
-            const [selectedTube, setSelectedTube] = useState(null);
+            const [selectedIdx, setSelectedIdx] = useState(null);
             const [moves, setMoves] = useState(0);
+            const [history, setHistory] = useState([]);
+            const [bonusCount, setBonusCount] = useState(0);
+            const [winStreak, setWinStreak] = useState(0);
             const [isWon, setIsWon] = useState(false);
-            const [completedTubes, setCompletedTubes] = useState([]);
-            const [winStreak, setWinStreak] = useState(0); 
-            const [extraBottlesCount, setExtraBottlesCount] = useState(0);
-            const [showApplause, setShowApplause] = useState(false);
 
-            const capacity = TUBE_BASE_CAPACITY + Math.floor(level / 10);
-            const isWide = tubes.length > 5;
-            const ballSize = capacity > 5 ? '1.5rem' : (capacity > 4 ? '1.8rem' : '2.1rem');
-            const ballSpacing = capacity > 5 ? '1.6rem' : (capacity > 4 ? '1.9rem' : '2.2rem');
-            const tubeWidth = isWide ? 'w-10 sm:w-14' : 'w-12 sm:w-16';
+            const NORMAL_CAP = 4;
 
             useEffect(() => {
-                const timer = setTimeout(() => setShowSplash(false), 2500);
+                const timer = setTimeout(() => setShowSplash(false), 2000);
                 return () => clearTimeout(timer);
             }, []);
 
-            const generateLevel = useCallback((lvl) => {
-                const colorsCount = Math.min(2 + Math.floor((lvl - 1) / 2), 8);
-                const emptyTubes = lvl > 5 ? 2 : (lvl > 2 ? 2 : 1);
+            const initLevel = useCallback((lvl) => {
+                const colorCount = Math.min(3 + Math.floor(lvl / 2), 8);
+                const colorKeys = Object.keys(COLORS).slice(0, colorCount);
                 
-                let currentTubes = [];
-                const availableColors = Object.keys(BALL_COLORS).slice(0, colorsCount);
-                
-                for (let i = 0; i < colorsCount; i++) {
-                    currentTubes.push(Array(capacity).fill(availableColors[i]));
-                }
-                for (let i = 0; i < emptyTubes; i++) {
-                    currentTubes.push([]);
+                let initial = colorKeys.map(color => Array(NORMAL_CAP).fill(color));
+                initial.push([], []); // 2 vacíos iniciales
+
+                // Mezclado lógico
+                for (let i = 0; i < 150; i++) {
+                    const from = Math.floor(Math.random() * initial.length);
+                    const to = Math.floor(Math.random() * initial.length);
+                    if (from !== to && initial[from].length > 0 && initial[to].length < NORMAL_CAP) {
+                        initial[to].push(initial[from].pop());
+                    }
                 }
 
-                for (let i = 0; i < 250; i++) {
-                    const sources = currentTubes.map((t, idx) => t.length > 0 ? idx : -1).filter(idx => idx !== -1);
-                    const sourceIdx = sources[Math.floor(Math.random() * sources.length)];
-                    const targets = currentTubes.map((t, idx) => (t.length < capacity && idx !== sourceIdx) ? idx : -1).filter(idx => idx !== -1);
-                    if (targets.length === 0) continue;
-                    const targetIdx = targets[Math.floor(Math.random() * targets.length)];
-                    currentTubes[targetIdx].push(currentTubes[sourceIdx].pop());
-                }
-                return currentTubes;
-            }, [capacity]);
-
-            const startLevel = useCallback((lvl) => {
-                setTubes(generateLevel(lvl));
+                setTubes(initial.map((balls, id) => ({ 
+                    id, 
+                    balls, 
+                    capacity: NORMAL_CAP,
+                    isMini: false 
+                })));
                 setHistory([]);
-                setSelectedTube(null);
                 setMoves(0);
                 setIsWon(false);
-                setCompletedTubes([]);
-                setShowApplause(false);
-            }, [generateLevel]);
+                setSelectedIdx(null);
+            }, []);
 
-            const restartCurrentLevel = () => {
-                setWinStreak(0);
-                startLevel(level);
-            };
+            useEffect(() => {
+                if (!showSplash) initLevel(level);
+            }, [level, showSplash, initLevel]);
 
-            const undoMove = () => {
-                if (history.length > 0 && !isWon) {
-                    const lastState = history[history.length - 1];
-                    setTubes(lastState.tubes);
-                    setCompletedTubes(lastState.completedTubes);
-                    setHistory(history.slice(0, -1));
-                    setMoves(m => m - 1);
-                    setSelectedTube(null);
-                }
-            };
+            const handleTubeClick = (idx) => {
+                if (isWon) return;
 
-            useEffect(() => { if (!showSplash) startLevel(level); }, [level, showSplash, startLevel]);
-
-            const handleTubeClick = (tubeIndex) => {
-                if (isWon || completedTubes.includes(tubeIndex)) return;
-                initAudio();
-                
-                if (selectedTube === null) {
-                    if (tubes[tubeIndex].length > 0) setSelectedTube(tubeIndex);
+                if (selectedIdx === null) {
+                    if (tubes[idx].balls.length > 0) setSelectedIdx(idx);
                 } else {
-                    if (selectedTube === tubeIndex) { setSelectedTube(null); return; }
-                    
-                    const source = tubes[selectedTube];
-                    const target = tubes[tubeIndex];
-                    if (target.length >= capacity) { setSelectedTube(tubeIndex); return; }
+                    if (selectedIdx === idx) {
+                        setSelectedIdx(null);
+                        return;
+                    }
 
-                    const color = source[source.length - 1];
-                    if (target.length === 0 || target[target.length - 1] === color) {
-                        // Guardar historia antes de cambiar
-                        setHistory(prev => [...prev, { tubes: tubes.map(t => [...t]), completedTubes: [...completedTubes] }]);
+                    const source = tubes[selectedIdx];
+                    const target = tubes[idx];
+                    const ball = source.balls[source.balls.length - 1];
 
-                        let toMove = 0;
-                        for (let i = source.length - 1; i >= 0; i--) {
-                            if (source[i] === color && (target.length + toMove) < capacity) toMove++;
-                            else break;
-                        }
+                    const canMove = target.balls.length < target.capacity && 
+                                    (target.balls.length === 0 || target.balls[target.balls.length - 1] === ball);
 
+                    if (canMove) {
+                        setHistory([...history, JSON.stringify(tubes)]);
                         const newTubes = [...tubes];
-                        const newSource = [...source];
-                        const newTarget = [...target];
-                        for (let i = 0; i < toMove; i++) newTarget.push(newSource.pop());
-                        
-                        newTubes[selectedTube] = newSource;
-                        newTubes[tubeIndex] = newTarget;
-
-                        let newlyCompleted = false;
-                        if (newTarget.length === capacity && newTarget.every(b => b === color)) {
-                            setCompletedTubes(prev => [...prev, tubeIndex]);
-                            playSound('complete');
-                            newlyCompleted = true;
-                        } else {
-                            playSound('move');
-                        }
-
+                        newTubes[idx].balls.push(newTubes[selectedIdx].balls.pop());
                         setTubes(newTubes);
                         setMoves(m => m + 1);
-                        setSelectedTube(null);
-
-                        // Chequear victoria
-                        const win = newTubes.every(t => t.length === 0 || (t.length === capacity && t.every(b => b === t[0])));
-                        if (win) handleWin();
+                        setSelectedIdx(null);
+                        checkWin(newTubes);
                     } else {
-                        setSelectedTube(tubeIndex);
+                        setSelectedIdx(idx);
                     }
                 }
             };
 
-            const handleWin = () => {
-                setIsWon(true);
-                playSound('win');
-                const nextStreak = winStreak + 1;
-                setWinStreak(nextStreak);
+            const checkWin = (currentTubes) => {
+                const win = currentTubes.every(t => 
+                    t.balls.length === 0 || 
+                    (t.balls.length === t.capacity && t.balls.every(b => b === t.balls[0]))
+                );
 
-                if (nextStreak % 5 === 0) {
-                    setShowApplause(true);
-                    setExtraBottlesCount(prev => prev + 1);
-                    playSound('applause');
+                if (win) {
+                    setIsWon(true);
+                    const newStreak = winStreak + 1;
+                    setWinStreak(newStreak);
+                    if (newStreak % 5 === 0) setBonusCount(b => b + 1);
+                    setTimeout(() => setLevel(l => l + 1), 2000);
                 }
-
-                setTimeout(() => setLevel(prev => prev + 1), 2500);
             };
 
-            const addExtraTube = () => {
-                if (extraBottlesCount > 0 && !isWon) {
-                    setExtraBottlesCount(prev => prev - 1);
-                    setTubes(prev => [...prev, []]);
+            const useBonus = () => {
+                if (bonusCount > 0) {
+                    setBonusCount(b => b - 1);
+                    setTubes([...tubes, { 
+                        id: `mini-${Date.now()}`, 
+                        balls: [], 
+                        capacity: 1, 
+                        isMini: true 
+                    }]);
+                }
+            };
+
+            const undo = () => {
+                if (history.length > 0) {
+                    setTubes(JSON.parse(history[history.length - 1]));
+                    setHistory(history.slice(0, -1));
+                    setMoves(m => m - 1);
                 }
             };
 
             if (showSplash) {
                 return (
-                    <div className="splash-screen">
-                        <img src="mamaball.jpg" alt="MAMA BALL" className="w-64 h-64 rounded-3xl object-cover animate-pulse border-4 border-white/10" />
-                        <p className="mt-6 text-white font-bold tracking-widest text-xs uppercase animate-pulse">Cargando Diversión...</p>
+                    <div className="flex flex-col items-center justify-center h-screen bg-[#0a0a0c]">
+                        <img src="mamaball.jpg" className="w-40 h-40 rounded-3xl mb-8 shadow-2xl" alt="Logo" />
+                        <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 w-full origin-left animate-[loading_2s_linear]"></div>
+                        </div>
+                        <p className="mt-4 text-[10px] font-bold tracking-[0.4em] uppercase text-blue-400">Cargando...</p>
+                        <style>{`@keyframes loading { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
                     </div>
                 );
             }
 
             return (
-                <div className="h-screen w-full bg-[#1a1c23] text-white flex flex-col items-center select-none overflow-hidden">
-                    {showApplause && <ConfettiEffect />}
-                    
-                    {/* Barra Superior Estilo Dashboard (Referencia) */}
-                    <div className="w-full max-w-lg px-4 pt-6 pb-2">
-                        <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col h-screen overflow-hidden">
+                    {/* Header Compacto */}
+                    <div className="p-4 flex flex-col items-center">
+                        <div className="w-full max-w-md flex justify-between items-center mb-4">
                             <div className="flex gap-2">
-                                <button onClick={() => setLevel(1)} className="btn-ui">
-                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg>
+                                <button onClick={() => setLevel(1)} className="btn-ui w-10 h-10">
+                                    <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg>
                                 </button>
-                                <button onClick={restartCurrentLevel} className="btn-ui">
-                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
+                                <button onClick={() => initLevel(level)} className="btn-ui w-10 h-10">
+                                    <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
                                 </button>
                             </div>
                             
                             <div className="flex gap-2">
-                                <button 
-                                    onClick={undoMove} 
-                                    className={`btn-ui flex gap-1 items-center px-4 ${history.length === 0 ? 'disabled' : ''}`}
-                                >
-                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.13,8 12.5,8Z"/></svg>
-                                    <span className="font-bold text-lg">{history.length}</span>
+                                <button onClick={undo} className={`btn-ui px-3 ${history.length === 0 ? 'disabled' : ''}`}>
+                                    <svg className="w-4 h-4 fill-white mr-1" viewBox="0 0 24 24"><path d="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.13,8 12.5,8Z"/></svg>
+                                    <span className="font-bold">{history.length}</span>
                                 </button>
-                                <button 
-                                    onClick={addExtraTube}
-                                    className={`btn-ui flex gap-1 items-center px-4 ${extraBottlesCount === 0 ? 'disabled' : ''}`}
-                                >
-                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M19,2H5V5H19V2M17,6H7V8H17V6M19,9H5V22H19V9Z"/></svg>
-                                    <span className="font-bold text-lg">{extraBottlesCount}</span>
+                                <button onClick={useBonus} className={`btn-ui px-3 ${bonusCount === 0 ? 'disabled' : ''}`}>
+                                    <svg className="w-4 h-4 fill-white mr-1" viewBox="0 0 24 24"><path d="M19,2H5V5H19V2M17,6H7V8H17V6M19,9H5V22H19V9Z"/></svg>
+                                    <span className="font-bold">{bonusCount}</span>
                                 </button>
                             </div>
                         </div>
 
-                        {/* Texto Nivel Grande (Referencia) */}
+                        {/* Texto de nivel ajustado */}
                         <div className="text-center">
-                            <h2 className="text-5xl font-black tracking-tight text-white uppercase drop-shadow-md">LEVEL {level}</h2>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Movimientos: {moves}</p>
+                            <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">LEVEL {level}</h1>
+                            <p className="text-[9px] font-bold text-blue-500/60 uppercase tracking-widest mt-1">Movimientos: {moves}</p>
                         </div>
                     </div>
 
-                    {/* Tablero de Juego */}
-                    <div className="game-scroll-area">
-                        <div className={`grid gap-x-4 gap-y-12 items-end px-6 ${tubes.length > 7 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    {/* Área de Juego - Grid Dinámica */}
+                    <div className="flex-1 flex items-center justify-center p-2 overflow-y-auto">
+                        <div className="game-grid">
                             {tubes.map((tube, idx) => (
-                                <div key={idx} className="relative cursor-pointer" onClick={() => handleTubeClick(idx)}>
-                                    <div className={`relative ${tubeWidth} transition-all duration-300 border-x-4 border-b-4 rounded-b-2xl shadow-inner
-                                        ${selectedTube === idx ? 'border-blue-400 bg-blue-400/10 scale-105' : 'border-white/10 bg-white/5'}
-                                        ${completedTubes.includes(idx) ? 'border-green-500/40 bg-green-500/10' : ''}`}
-                                        style={{ height: `calc(${capacity} * ${ballSpacing} + 1.2rem)` }}>
-                                        
-                                        {completedTubes.includes(idx) && <Sparks color={BALL_COLORS[tube[0]].base} />}
-                                        {completedTubes.includes(idx) && (
-                                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-[115%] h-4 animate-cap">
-                                                <div className="w-full h-full bg-neutral-500 rounded-t-lg border-b-2 border-black/30 shadow-md"></div>
-                                            </div>
-                                        )}
-                                        
-                                        <div className="relative w-full h-full">
-                                            {tube.map((color, bIdx) => (
-                                                <div key={bIdx} className={`ball ${selectedTube === idx && bIdx === tube.length - 1 ? 'selected' : ''}`}
-                                                    style={{ 
-                                                        '--ball-index': bIdx, 
-                                                        '--ball-base': BALL_COLORS[color].base, 
-                                                        '--ball-dark': BALL_COLORS[color].dark,
-                                                        '--ball-size': ballSize,
-                                                        '--ball-spacing': ballSpacing
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
+                                <div 
+                                    key={tube.id}
+                                    className={`bottle ${selectedIdx === idx ? 'selected' : ''} ${tube.isMini ? 'mini' : ''}`}
+                                    style={{ height: tube.capacity === 1 ? '70px' : '185px' }}
+                                    onClick={() => handleTubeClick(idx)}
+                                >
+                                    {tube.balls.map((color, bIdx) => (
+                                        <div 
+                                            key={bIdx}
+                                            className={`ball ${selectedIdx === idx && bIdx === tube.balls.length - 1 ? 'floating' : ''}`}
+                                            style={{ backgroundColor: COLORS[color] }}
+                                        />
+                                    ))}
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Footer Informativo */}
-                    <div className="pb-8 shrink-0 flex flex-col items-center gap-1 opacity-40">
-                        <p className="text-[9px] font-black uppercase tracking-widest">Racha: {winStreak} | Mama Ball By Mefdim</p>
+                    {/* Footer con Racha */}
+                    <div className="py-4 text-center border-t border-white/5 bg-black/20">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                            Racha: <span className="text-blue-500">{winStreak}</span> | MAMA BALL BY MEFDIM
+                        </span>
                     </div>
 
                     {/* Modal Victoria */}
                     {isWon && (
-                        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6 backdrop-blur-md">
-                            <div className="bg-[#1f2937] p-10 rounded-[2.5rem] text-center shadow-2xl max-w-sm w-full border-4 border-white/5">
-                                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/30">
-                                    <svg viewBox="0 0 24 24" className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
+                        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade">
+                            <div className="bg-[#1f2937] rounded-[2rem] p-8 text-center border-2 border-white/10 shadow-2xl w-full max-w-[280px]">
+                                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/20">
+                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" strokeWidth="4" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <h2 className="text-4xl font-black mb-2 text-white italic tracking-tighter uppercase">¡EXCELENTE!</h2>
-                                <p className="text-neutral-400 text-xs mb-8 uppercase tracking-widest font-bold">Nivel {level} Completado</p>
-                                
-                                {showApplause && (
-                                    <div className="mb-6 bg-blue-500/20 py-3 rounded-2xl border border-blue-500/30">
-                                        <p className="text-blue-400 text-xs font-black uppercase tracking-widest">¡BONUS: +1 AYUDA!</p>
-                                    </div>
-                                )}
-
-                                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden mb-4">
-                                    <div className="h-full bg-blue-500 animate-loading-bar"></div>
-                                </div>
+                                <h2 className="text-2xl font-black italic uppercase text-white">¡GENIAL!</h2>
+                                <p className="text-gray-400 text-[10px] font-bold uppercase mt-1">Preparando siguiente nivel...</p>
                             </div>
                         </div>
                     )}
