@@ -418,7 +418,7 @@ function App() {
 
     if (showSplash) return (
         <div className="flex flex-col items-center justify-center h-screen bg-[#0a0c10]">
-            <img src="mamaball.jpg" className="w-36 h-36 rounded-[2.5rem] mb-10 shadow-[0_0_60px_rgba(29,99,237,0.15)]" alt="Logo" />
+            <div className="w-36 h-36 rounded-[2.5rem] mb-10 bg-blue-600 flex items-center justify-center text-5xl font-black shadow-[0_0_60px_rgba(29,99,237,0.3)]">MB</div>
             <div className="w-40 h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500 w-full origin-left" style={{animation:'loading 1.5s ease-in-out'}}></div>
             </div>
@@ -449,7 +449,22 @@ function App() {
                             <svg className="w-5 h-5 fill-white mr-1" viewBox="0 0 24 24"><path d="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.13,8 12.5,8Z"/></svg>
                             <span className="font-black text-sm">{history.length}</span>
                         </button>
-                        <button onClick={() => bonusCount>0 && setBonus(b=>b-1)} className={`btn-ui px-3 ${bonusCount===0?'disabled':''}`}>
+                        <button onClick={() => {
+                            if (bonusCount > 0) {
+                                setBonus(b => b - 1);
+                                setTubes(prev => {
+                                    const newTubes = [...prev, {
+                                        id: `bonus-${Date.now()}`,
+                                        balls: [],
+                                        capacity: 1,
+                                        isCompleted: false
+                                    }];
+                                    setSizes(computeSizes(newTubes.length, newTubes[0]?.capacity || 4));
+                                    return newTubes;
+                                });
+                                playPick();
+                            }
+                        }} className={`btn-ui px-3 ${bonusCount===0?'disabled':''}`}>
                             <svg className="w-5 h-5 fill-white mr-1" viewBox="0 0 24 24"><path d="M19,2H5V5H19V2M17,6H7V8H17V6M19,9H5V22H19V9Z"/></svg>
                             <span className="font-black text-sm">{bonusCount}</span>
                         </button>
