@@ -1,0 +1,21 @@
+ {
+  "name": "MAMA BALL",
+  "short_name": "MamaBall",
+  "description": "El juego de organizar bolas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#1d63ed",
+  "icons": [
+    {
+      "src": "mamaball.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "mamaball.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
