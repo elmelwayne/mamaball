@@ -601,9 +601,7 @@ function App() {
                                     className={`ball ${selectedIdx===idx && bIdx===tube.balls.length-1?'floating':''} ${droppedBalls[`${idx}-${bIdx}`] || ''}`}
                                     style={{
                                         backgroundColor: COLORS[color],
-                                        backgroundImage: `url('${BALL_IMAGES[color]}')`,
-                                        backgroundSize: 'cover',
-                                        backgroundPosition: 'center',
+                                        backgroundImage: 'none',
                                         boxShadow: '0 3px 7px rgba(0,0,0,0.5)'
                                     }}
                                 />
