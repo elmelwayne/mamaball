@@ -198,19 +198,9 @@ const playPick = () => {
 
 const playMove = () => {
     try {
-        const ctx = ac(), now = ctx.currentTime;
-        [523, 659].forEach((f, i) => {
-            const osc = ctx.createOscillator(), g = ctx.createGain();
-            const filt = ctx.createBiquadFilter();
-            filt.type = 'lowpass'; filt.frequency.value = 2000;
-            osc.type = 'sine'; osc.frequency.value = f;
-            const t = now + i * 0.05;
-            g.gain.setValueAtTime(0, t);
-            g.gain.linearRampToValueAtTime(0.16, t + 0.01);
-            g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-            osc.connect(filt); filt.connect(g); g.connect(ctx.destination);
-            osc.start(t); osc.stop(t + 0.25);
-        });
+        const audio = new Audio('golpe.mp3');
+        audio.volume = 0.7;
+        audio.play();
     } catch(e){}
 };
 
