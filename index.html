@@ -314,9 +314,28 @@ function App() {
     useEffect(() => { const t = setTimeout(() => setShowSplash(false), 1500); return () => clearTimeout(t); }, []);
 
     const initLevel = useCallback((lvl) => {
-        const cap = lvl >= 20 ? 6 : lvl >= 10 ? 5 : 4;
-        const colorCount = Math.min(3 + Math.floor(lvl / 2), 8);
-        const colorKeys = Object.keys(COLORS).slice(0, colorCount);
+        // Rango de capacidad según nivel, con variación aleatoria
+        let minCap, maxCap;
+        if (lvl <= 3)       { minCap = 3; maxCap = 4; }
+        else if (lvl <= 7)  { minCap = 3; maxCap = 5; }
+        else if (lvl <= 12) { minCap = 4; maxCap = 6; }
+        else if (lvl <= 18) { minCap = 3; maxCap = 6; }
+        else                { minCap = 4; maxCap = 7; }
+        const cap = minCap + Math.floor(Math.random() * (maxCap - minCap + 1));
+
+        // Rango de colores según nivel, con variación aleatoria
+        let minColors, maxColors;
+        if (lvl <= 3)       { minColors = 3; maxColors = 4; }
+        else if (lvl <= 6)  { minColors = 3; maxColors = 5; }
+        else if (lvl <= 10) { minColors = 4; maxColors = 6; }
+        else if (lvl <= 15) { minColors = 4; maxColors = 7; }
+        else                { minColors = 5; maxColors = 8; }
+        const colorCount = minColors + Math.floor(Math.random() * (maxColors - minColors + 1));
+
+        // Mezclar los colores disponibles aleatoriamente para que no sean siempre los mismos
+        const allKeys = Object.keys(COLORS);
+        const shuffledKeys = allKeys.sort(() => Math.random() - 0.5);
+        const colorKeys = shuffledKeys.slice(0, colorCount);
         let initial = colorKeys.map(c => Array(cap).fill(c));
         initial.push([], []);
 
