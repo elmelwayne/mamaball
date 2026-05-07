@@ -175,6 +175,18 @@ const COLORS = {
     cyan:   '#0891b2'
 };
 
+// Imágenes de bolas — para volver a colores CSS basta con borrar este objeto
+const BALL_IMAGES = {
+    red:    'ball_1.png',
+    blue:   'ball_2.png',
+    yellow: 'ball_3.png',
+    green:  'ball_4.png',
+    purple: 'ball_5.png',
+    orange: 'ball_6.png',
+    pink:   'ball_7.png',
+    cyan:   'ball_8.png'
+};
+
 /* ══ AUDIO ══ */
 let _ctx = null;
 const ac = () => {
@@ -583,7 +595,13 @@ function App() {
                                 <div
                                     key={bIdx}
                                     className={`ball ${selectedIdx===idx && bIdx===tube.balls.length-1?'floating':''} ${droppedBalls[`${idx}-${bIdx}`] || ''}`}
-                                    style={{backgroundColor: COLORS[color]}}
+                                    style={{
+                                        backgroundColor: COLORS[color],
+                                        backgroundImage: `url('${BALL_IMAGES[color]}')`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                        boxShadow: '0 3px 7px rgba(0,0,0,0.5)'
+                                    }}
                                 />
                             ))}
                         </div>
