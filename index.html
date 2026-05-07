@@ -89,6 +89,39 @@
             box-shadow: 0 16px 32px rgba(0,0,0,0.6), 0 0 12px rgba(59,130,246,0.2);
         }
 
+        /* ── Animación de caída con rebote ── */
+        @keyframes ballDrop {
+            0%   { transform: translateY(-80px) scale(1.05); opacity: 0.6; }
+            55%  { transform: translateY(6px) scale(0.95); opacity: 1; }
+            75%  { transform: translateY(-5px) scale(1.03); }
+            90%  { transform: translateY(2px) scale(0.98); }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes ballDropSoft {
+            0%   { transform: translateY(-40px) scale(1.03); opacity: 0.7; }
+            60%  { transform: translateY(4px) scale(0.97); opacity: 1; }
+            80%  { transform: translateY(-3px) scale(1.01); }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .ball.dropped {
+            animation: ballDrop 0.38s cubic-bezier(0.33,1,0.68,1) forwards;
+        }
+        .ball.dropped-soft {
+            animation: ballDropSoft 0.28s cubic-bezier(0.33,1,0.68,1) forwards;
+        }
+
+        /* Squish al llegar al fondo (bolas de abajo se comprimen levemente) */
+        @keyframes squish {
+            0%   { transform: scaleY(1) scaleX(1); }
+            30%  { transform: scaleY(0.82) scaleX(1.18); }
+            65%  { transform: scaleY(1.06) scaleX(0.96); }
+            100% { transform: scaleY(1) scaleX(1); }
+        }
+        .ball.squish {
+            animation: squish 0.32s ease-out forwards;
+        }
+
         .ball {
             width: var(--ball-size);
             height: var(--ball-size);
@@ -282,6 +315,7 @@ function App() {
     });
     const [isWon, setIsWon]           = useState(false);
     const [sparkles, setSparkles]     = useState([]);
+    const [droppedBalls, setDropped]  = useState({}); // {tubeIdx-ballIdx: 'dropped'|'squish'}
     const [showCongrats, setShowCongrats] = useState(false);
     const [sizes, setSizes]           = useState(() => computeSizes(8, 4));
 
@@ -384,6 +418,21 @@ function App() {
             setTubes(newTubes);
             setMoves(m => m+1);
             setSelected(null);
+
+            // Animación: bola que cae (dropped) + squish en las que estaban debajo
+            const newDropped = {};
+            const landingPos = newTubes[idx].balls.length - 1;
+            // Las bolas recién llegadas
+            for (let i = 0; i < count; i++) {
+                const bIdx = landingPos - i;
+                if (bIdx >= 0) newDropped[`${idx}-${bIdx}`] = i === 0 ? 'dropped' : 'dropped-soft';
+            }
+            // Squish en la bola que estaba justo debajo
+            const squishIdx = landingPos - count;
+            if (squishIdx >= 0) newDropped[`${idx}-${squishIdx}`] = 'squish';
+
+            setDropped(newDropped);
+            setTimeout(() => setDropped({}), 420);
 
             // Ganar 1 undo cada 3 movimientos correctos (máx MAX_UNDO)
             setMovesForUndo(mfu => {
@@ -524,7 +573,7 @@ function App() {
                             {tube.balls.map((color, bIdx) => (
                                 <div
                                     key={bIdx}
-                                    className={`ball ${selectedIdx===idx && bIdx===tube.balls.length-1?'floating':''}`}
+                                    className={`ball ${selectedIdx===idx && bIdx===tube.balls.length-1?'floating':''} ${droppedBalls[`${idx}-${bIdx}`] || ''}`}
                                     style={{backgroundColor: COLORS[color]}}
                                 />
                             ))}
